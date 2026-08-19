@@ -1,69 +1,406 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+
+type ProgressState = {
+  planner?: string;
+  coder?: string;
+  test_generator?: string;
+  executor?: string;
+  tester?: string;
+  reviewer?: string;
+  critic?: string;
+  reflection?: string;
+};
+
+type Run = {
+  id: string | number;
+  task: string;
+  created_at: string;
+  status: string;
+  retry_count: number;
+};
+
+type AgentResult = {
+  quality_score?: number;
+  [key: string]: unknown;
+};
+
+type AgentEvent = {
+  node: string;
+  status: string;
+  message: string;
+  timestamp: string;
+};
 
 export default function Home() {
+  useEffect(() => {
+    loadRuns();
+  }, []);
+  const [task, setTask] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<AgentResult | null>(null);
+  const [error, setError] = useState("");
+  const [progress, setProgress] = useState<ProgressState>({});
+  const [runs, setRuns] = useState<Run[]>([]);
+  const [events, setEvents] = useState<AgentEvent[]>([]);
+  const loadRuns = async () => {
+    try {
+      const response = await fetch("http://localhost:8000/api/runs");
+
+      const data = await response.json();
+
+      setRuns(data.runs || []);
+    } catch (error) {
+      console.error("Failed to load runs:", error);
+    }
+  };
+  const runAgent = async () => {
+    if (!task.trim()) {
+      setError("Please enter a coding task.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setResult(null);
+    setProgress({});
+    setEvents([]);
+
+    try {
+      const response = await fetch("http://localhost:8000/api/agent/stream", {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify({
+          task: task,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Request failed: ${response.status}`);
+      }
+
+      if (!response.body) {
+        throw new Error("Response body is missing.");
+      }
+
+      const reader = response.body.getReader();
+
+      const decoder = new TextDecoder();
+
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+
+        if (done) {
+          break;
+        }
+
+        buffer += decoder.decode(value, {
+          stream: true,
+        });
+
+        const streamEvents = buffer.split("\n\n");
+
+        buffer = streamEvents.pop() || "";
+
+        for (const event of streamEvents) {
+          if (!event.startsWith("data:")) {
+            continue;
+          }
+
+          const jsonData = event.replace("data:", "").trim();
+
+          if (!jsonData) {
+            continue;
+          }
+
+          const data = JSON.parse(jsonData);
+
+          console.log("Agent event:", data);
+
+          if (data.type === "node") {
+            setEvents((previous) => [
+              ...previous,
+              {
+                node: data.node,
+                status: "completed",
+                message: data.message || "Node completed",
+                timestamp: new Date().toLocaleTimeString(),
+              },
+            ]);
+
+            setProgress((previous) => {
+              return {
+                ...previous,
+                [data.node]: "completed",
+              };
+            });
+
+            setResult((previous) => {
+              return {
+                ...(previous || {}),
+                ...data.data,
+              };
+            });
+          }
+
+          if (data.type === "error") {
+            setError(data.error);
+          }
+
+          if (data.type === "done") {
+            setLoading(false);
+            loadRuns();
+          }
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+      loadRuns();
+    }
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
+    <main className="container">
+      <header className="header">
+        <div>
+          <div className="badge">AI SOFTWARE ENGINEER</div>
+
+          <h1>
+            Autonomous
+            <span> Code Agent</span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+
+          <p>Plan, generate, test, debug and review code autonomously.</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+      </header>
+
+      <section className="task-card">
+        <label>Coding Task</label>
+
+        <textarea
+          value={task}
+          onChange={(e) => setTask(e.target.value)}
+          placeholder="Example: Create a Python function called factorial..."
+          rows={6}
+        />
+
+        <button onClick={runAgent} disabled={loading}>
+          {loading ? "Running Agent..." : "Run Agent"}
+        </button>
+
+        {error && <div className="error">{error}</div>}
+      </section>
+
+      {loading && (
+        <section className="progress-card">
+          <h2>Agent is working...</h2>
+
+          <div className="pipeline">
+            <PipelineStep name="Planner" status={progress.planner} />
+
+            <PipelineStep name="Coder" status={progress.coder} />
+
+            <PipelineStep
+              name="Test Generator"
+              status={progress.test_generator}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+            <PipelineStep name="Docker" status={progress.executor} />
+
+            <PipelineStep name="Tester" status={progress.tester} />
+
+            <PipelineStep name="Reviewer" status={progress.reviewer} />
+
+            <PipelineStep name="Critic" status={progress.critic} />
+
+            <PipelineStep name="Reflection" status={progress.reflection} />
+          </div>
+        </section>
+      )}
+
+      {events.length > 0 && (
+        <section className="events-card">
+          <div className="section-header">
+            <div>
+              <span className="badge">AGENT ACTIVITY</span>
+
+              <h2>Execution Timeline</h2>
+            </div>
+
+            <span className="history-count">{events.length} events</span>
+          </div>
+
+          <div className="event-timeline">
+            {events.map((event, index) => (
+              <div className="event" key={index}>
+                <div className="event-dot">✓</div>
+
+                <div className="event-content">
+                  <div className="event-title">
+                    <strong>{event.node}</strong>
+
+                    <span className="event-status">{event.status}</span>
+                  </div>
+
+                  <p>{event.message}</p>
+
+                  <small>{event.timestamp}</small>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {result && <ResultPanel result={result} />}
+
+      <section className="history-card">
+        <div className="section-header">
+          <div>
+            <span className="badge">HISTORY</span>
+
+            <h2>Previous Runs</h2>
+          </div>
+
+          <span className="history-count">{runs.length} runs</span>
         </div>
-      </main>
+
+        {runs.length === 0 ? (
+          <p className="empty-history">No previous runs yet.</p>
+        ) : (
+          <div className="run-list">
+            {runs.map((run) => (
+              <div className="run-item" key={run.id}>
+                <div>
+                  <strong>Run #{run.id}</strong>
+
+                  <p>{run.task}</p>
+
+                  <small>{run.created_at}</small>
+                </div>
+
+                <div className="run-meta">
+                  <span>{run.status}</span>
+
+                  <span>Retries: {run.retry_count}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </main>
+  );
+}
+
+function PipelineStep({ name, status }: { name: string; status?: string }) {
+  const active = status === "completed";
+
+  return (
+    <div className={active ? "pipeline-step completed" : "pipeline-step"}>
+      <div className="step-icon">{active ? "●" : "○"}</div>
+
+      <span>{name}</span>
+    </div>
+  );
+}
+
+function ResultPanel({ result }: { result: any }) {
+  const hasTestResult =
+    typeof result.test_result === "string" &&
+    result.test_result.trim().length > 0;
+  const testsPassed =
+    hasTestResult && result.test_result.includes("TESTS PASSED");
+
+  return (
+    <section className="results">
+      <div className="status-header">
+        <div>
+          <span className="badge">AGENT RESULT</span>
+
+          <h2>{result.status || "Completed"}</h2>
+        </div>
+
+        {hasTestResult ? (
+          <div className={testsPassed ? "status success" : "status failure"}>
+            {testsPassed ? "✓ Tests Passed" : "✕ Tests Failed"}
+          </div>
+        ) : (
+          <div className="status pending">
+            ⏱ Testing Pending
+          </div>
+        )}
+      </div>
+
+      <div className="stats">
+        <Stat label="Retries" value={result.retry_count ?? 0} />
+
+        <Stat
+          label="Test Status"
+          value={
+            hasTestResult ? (testsPassed ? "PASS" : "FAIL") : "PENDING"
+          }
+        />
+
+        <Stat label="Error" value={result.error ? "YES" : "NONE"} />
+      </div>
+
+      <div className="result-grid">
+        <CodeBlock
+          title="Generated Code"
+          code={result.generated_code || "No code generated."}
+        />
+
+        <CodeBlock
+          title="Generated Tests"
+          code={result.test_code || "No tests generated."}
+        />
+      </div>
+
+      <div className="review-card">
+        <h3>AI Review</h3>
+
+        <pre>{result.review || "No review available."}</pre>
+      </div>
+
+      <div className="report-card">
+        <h3>Final Report</h3>
+
+        <pre>{result.final_report || "No final report available."}</pre>
+      </div>
+    </section>
+  );
+}
+
+function CodeBlock({ title, code }: { title: string; code: string }) {
+  return (
+    <div className="code-card">
+      <div className="code-header">
+        <h3>{title}</h3>
+      </div>
+
+      <pre>
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: any }) {
+  return (
+    <div className="stat">
+      <span>{label}</span>
+
+      <strong>{value}</strong>
     </div>
   );
 }
