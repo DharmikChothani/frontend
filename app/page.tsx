@@ -214,7 +214,7 @@ export default function Home() {
               status={progress.test_generator}
             />
 
-            <PipelineStep name="Docker" status={progress.executor} />
+           
 
             <PipelineStep name="Tester" status={progress.tester} />
 
