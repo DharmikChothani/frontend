@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
       {
         source: "/api/backend/:path*",
         destination: isProd
-          ? "https://autonomous-code-agent.onrender.com/:path*" // Production (Vercel)
+          ? "https://ai-agenet-mu.vercel.app/" // Production (Vercel)
           : "http://127.0.0.1:8000/:path*",                     // Local dev (FastAPI)
       },
     ];
