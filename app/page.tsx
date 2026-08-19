@@ -34,6 +34,8 @@ type AgentEvent = {
   timestamp: string;
 };
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/backend";
+
 export default function Home() {
   useEffect(() => {
     loadRuns();
@@ -47,7 +49,7 @@ export default function Home() {
   const [events, setEvents] = useState<AgentEvent[]>([]);
   const loadRuns = async () => {
     try {
-      const response = await fetch("http://localhost:8000/api/runs");
+      const response = await fetch(`${API_BASE}/api/runs`);
 
       const data = await response.json();
 
@@ -69,7 +71,7 @@ export default function Home() {
     setEvents([]);
 
     try {
-      const response = await fetch("http://localhost:8000/api/agent/stream", {
+      const response = await fetch(`${API_BASE}/api/agent/stream`, {
         method: "POST",
 
         headers: {
