@@ -1,18 +1,16 @@
-// app/items-server/page.jsx (Server Component version for Vercel deployment)
+// app/items-server/page.jsx (Server Component using Next.js rewrites to Render backend)
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 async function getItems() {
-  const baseUrl = API_BASE.startsWith("http")
-    ? API_BASE.replace(/\/$/, "")
-    : `http://localhost:3000${API_BASE.replace(/\/$/, "")}`;
+  const url = `${API_BASE.replace(/\/$/, "")}/items/`;
 
   try {
-    const response = await fetch(`${baseUrl}/items/`, {
+    const response = await fetch(url, {
       headers: {
         "Content-Type": "application/json",
       },
-      cache: "no-store", // for dynamic/real-time data on Vercel
+      cache: "no-store", // dynamic data on Vercel
     });
 
     if (!response.ok) {
@@ -21,7 +19,7 @@ async function getItems() {
 
     return response.json();
   } catch (error) {
-    // Fallback data if backend URL is not reachable during SSG/build on Vercel
+    // Fallback data if backend service is unreachable during build
     return [
       { id: 1, name: "Sample Item 1 (Server Component)" },
       { id: 2, name: "Sample Item 2 (Server Component)" },

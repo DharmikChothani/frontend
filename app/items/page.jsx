@@ -1,14 +1,12 @@
-// app/items/page.jsx (Default Server Component route for Vercel deployment)
+// app/items/page.jsx (Default route using Next.js rewrites to Render backend)
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 async function getItems() {
-  const baseUrl = API_BASE.startsWith("http")
-    ? API_BASE.replace(/\/$/, "")
-    : `http://localhost:3000${API_BASE.replace(/\/$/, "")}`;
+  const url = `${API_BASE.replace(/\/$/, "")}/items/`;
 
   try {
-    const response = await fetch(`${baseUrl}/items/`, {
+    const response = await fetch(url, {
       headers: {
         "Content-Type": "application/json",
       },

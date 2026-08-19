@@ -1,9 +1,9 @@
-// app/items-client/page.jsx (Client Component version for Vercel deployment)
-"use client"; // required for App Router client components
+// app/items-client/page.jsx (Client Component using Next.js rewrites to Render backend)
+"use client";
 
 import { useState, useEffect } from "react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api/backend";
 
 async function getItems() {
   const baseUrl = API_BASE.replace(/\/$/, "");
